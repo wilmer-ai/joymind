@@ -3,8 +3,8 @@
 | 项目 | 内容 |
 | --- | --- |
 | 文档编号 | JM-SPEC-001 |
-| 文档版本 | 0.1.0 |
-| 状态 | Proposed |
+| 文档版本 | 0.4.0 |
+| 状态 | Implemented（核心、动态模型目录、权限模式、通用偏好、Markdown 渲染与系统菜单；完整 P0 验收仍未完成） |
 | 产品名称 | Joymind |
 | 技术路线 | TypeScript 全栈、React、Electron、SQLite、MCP |
 | 目标形态 | 本地优先的桌面 Agent 工具，同时提供 CLI |
@@ -156,6 +156,9 @@ Super Agent 必须复用 Run、Tool、Policy、Event、Budget 和 Artifact。父
 | OpenAI 兼容与第二类 Provider Adapter | 必须 | 增加 | 复用 |
 | 文件、终端、搜索工具 | 必须 | 增加 | 复用 |
 | 审批、取消、预算、审计 | 必须 | 增强 | 层级继承 |
+| 权限模式（询问/自动/自主） | 必须 | 层级继承 | 复用 |
+| 通用偏好与运行详略 | 必须 | 增强 | 复用 |
+| 安全 Markdown 渲染 | 必须 | 增强 | 复用 |
 | SQLite 持久化与迁移 | 必须 | 备份导出 | 任务图查询 |
 | MCP Client | 可选 | 必须 | 复用 |
 | 第三方 Extension Host | 不支持 | 受限支持 | 按能力授权 |
@@ -469,8 +472,29 @@ Runtime 必须根据能力选择协议路径。不支持工具调用的模型不
 ### 11.4 密钥
 
 - 优先使用操作系统安全存储；不支持时明确提示风险。
-- 密钥不得进入 SQLite、Run Event、普通日志、崩溃报告或前端状态。
-- UI 只显示是否已配置和必要的掩码信息。
+- 密钥不得进入 SQLite、Run Event、普通日志或崩溃报告。Renderer 仅可临时收集用户主动输入的新密钥并通过专用 IPC 提交；已保存密钥不得回传 Renderer 或进入持久化前端状态。
+- UI 只显示是否已配置、来源（加密存储/环境变量）和必要的掩码信息，不返回明文或真实掩码字符。
+
+### 11.5 Provider 目录与连接设置（0.2.0）
+
+- `packages/providers` 中的目录是 Provider ID、协议、官方默认端点、环境变量、默认模型和常用模型预设的单一事实来源；Runtime、CLI 和桌面不得各自维护不同的协议分支。
+- 当前必须支持 `openai`、`deepseek`、`anthropic`、`gemini`、`moonshot`、`qwen`、`zhipu` 和 `openai-compatible`。除 Anthropic 与 Scripted 外，当前均复用 OpenAI 兼容 Adapter；新增协议仍应实现独立 Adapter。
+- DeepSeek 当前回退预设为 `deepseek-flash` 与 `deepseek-v4-pro`；已停用的 `deepseek-chat` / `deepseek-reasoner` 不得继续作为默认或推荐预设。所有 Provider 均允许输入任意其他模型 ID。预设是便利性静态元数据，不得声称为厂商实时可用模型清单。
+- Provider 设置必须允许保存模型和可选 Base URL。自定义兼容端点必须配置 Base URL，API 密钥可按本地服务要求留空。
+- 连接测试必须使用选定模型发出最小真实流式请求，具有 20 秒超时且不自动重试；不得把回复写入 Run/Event 或作为连接结果返回。
+- 桌面偏好采用版本化 JSON，与加密密钥文件分离。偏好写入必须原子替换并串行化并发写入；Renderer 不得提交存储版本字段。
+- 本地 HTTP/SSE Contract 测试不代表外部厂商验收。没有有效凭据时，任务状态和发布说明必须保留该限制。
+
+### 11.6 在线模型发现（0.3.0 引入，0.4.0 保持）
+
+- 设置页必须提供显式“获取模型列表”操作，不得在打开设置时静默发起网络请求。成功后把模型 ID 加入当前会话的选择列表，由用户选择并保存；失败或空结果不得清空当前模型。
+- Provider 目录以 `modelList` 策略声明 `openai`、`anthropic`、`gemini`、`qwen` 或 `none`。模型发现协议不得从聊天推理协议推断，厂商差异必须留在 Provider 层。
+- OpenAI/DeepSeek/Kimi/自定义兼容端点使用 `GET <baseUrl>/models`；Anthropic 使用 `GET /v1/models?lifecycle=active` 和 `after_id` 分页；Gemini 使用原生 `/models`、`nextPageToken` 分页并归一化 `models/<id>`。
+- Qwen 必须单独保存业务空间/地域相关的模型列表 Base URL，并调用 `/api/v1/models` 页码分页；不得对 OpenAI 兼容聊天端点调用 `/models`。该字段不得改变聊天 Base URL。
+- GLM 当前没有已文档化的模型目录 API，必须显示不支持原因并保留当前静态预设和手工输入，不得伪造在线获取。
+- 列表请求具有整体 20 秒超时且不自动重试；响应必须通过 schema 校验、去重并限制最多 2000 项。列表内容不进入 Run/Event，密钥只在主进程和 Provider 请求头中使用。
+- 当前模型 ID 与 Qwen 列表端点可持久化；在线结果只保留在当前设置会话，避免过期目录被当作永久事实。
+- 最新模型 ID 与接口依据记录于 `docs/provider-model-catalog.md`，更新回退预设时必须重新核对官方来源。
 
 ## 12. 工具系统与安全策略
 
@@ -524,7 +548,15 @@ allow | deny | require_approval
 - 高风险命令不能仅依靠正则黑名单保证安全；需要用户审批，后续使用 OS Sandbox。
 - 工具输出必须限制字节数、行数和执行时间，超限结果截断为 Artifact 引用。
 
-### 12.5 审批
+### 12.5 审批与权限模式
+
+P0 支持三种权限模式，模式属于 AgentDefinition/Run 快照的必填字段，并在 Run 生命周期内保持一致：
+
+1. `ask`：所有非只读工具调用逐次审批，保持默认行为。
+2. `auto`：Agent 在每个非只读工具调用参数中显式提供保留字段 `__joymind_permission`，包含 `decision: "execute" | "ask"` 和可选 `reason`。只有 schema 校验通过的 `execute` 才免审批；缺失、非法或选择 `ask` 时必须失败关闭并进入审批，禁止把评估字段当作工具参数或写入模型上下文。
+3. `autonomous`：用户在启动 Run 前一次性委托本次执行，非只读工具不再逐次审批；仍受 Workspace、工具白名单、预算、取消、超时和工具安全策略约束，不得扩大为跨 Run 持久授权。
+
+权限模式不得由模型单方面更改；`auto` 的评估原因必须可审计。Run 的 `tool.requested`、`tool.started`、`tool.approval_required` 事件和快照必须记录实际模式与评估结果。
 
 审批请求至少展示：
 
@@ -535,7 +567,7 @@ allow | deny | require_approval
 - 风险等级和来源 Agent。
 - 本次允许、拒绝；策略支持的范围内可以“同类允许”。
 
-“同类允许”必须具有明确作用域和有效期，禁止默认转化为整个会话无限授权。
+“同类允许”必须具有明确作用域和有效期，禁止默认转化为整个会话无限授权。运行详略偏好不得隐藏审批卡片中的参数、Diff、命令、风险与操作。
 
 ### 12.6 工具结果
 
@@ -613,6 +645,8 @@ spec:
     maxSteps: 40
     maxToolCalls: 60
     maxWallTimeMinutes: 30
+  permissions:
+    mode: ask
   runtime:
     mode: single
 ```
@@ -622,6 +656,8 @@ spec:
 - 配置加载必须通过 Zod 或等价 schema 校验。
 - 未知字段默认拒绝，避免拼写错误被静默忽略。
 - AgentDefinition 声明的是权限上限，不代表自动获得权限。
+- `permissions.mode` 默认 `ask`，缺省配置必须回退到 `ask`，不得因字段缺失而提升到 `auto` 或 `autonomous`。
+- `auto` 模式的 `__joymind_permission` 保留字段由 Runtime 在工具 schema 校验前剥离，不得进入工具参数、审批比对或模型上下文。
 - Prompt、模型和工具版本变更应提升定义版本。
 - `builtin://` 指向应用内置资源；文件引用需要 Workspace/Extension 权限。
 
@@ -802,7 +838,7 @@ Supervisor 只能在以下情况继续分解：
 | --- | --- |
 | workspaces | id、name、root_path、created_at、last_opened_at |
 | sessions | id、workspace_id、title、created_at、updated_at |
-| runs | id、session_id、parent_run_id、root_run_id、agent_definition_id、mode、status、version、timestamps |
+| runs | id、session_id、parent_run_id、root_run_id、agent_definition_id、mode、permission_mode、status、version、timestamps |
 | run_events | run_id、seq、id、type、payload_json、occurred_at |
 | messages | id、session_id、run_id、role、content_ref、created_at |
 | tool_calls | id、run_id、tool_name、status、args_ref、result_ref、risk、timestamps |
@@ -856,7 +892,9 @@ P2 增加 TaskGraph、子 Agent 树、并发状态和 Artifact 浏览。
 
 - 区分用户消息、Agent 文本、工具调用、审批和系统事件。
 - 流式文本不能掩盖工具风险和错误。
+- Assistant 消息必须以渲染后的 Markdown 呈现（GFM 标题、列表、代码块、表格、链接等），并经过白名单消毒；禁止执行脚本、内联样式、表单和外部资源，链接仅允许 HTTP(S)。
 - 每个工具调用展示状态、耗时、参数摘要和输出。
+- 通用偏好支持运行过程“详细/简略”与工具时间线显隐：简略模式只隐藏已完成工具的参数、Diff 和输出摘要，不得隐藏审批、风险、错误和取消状态。
 - 长输出默认折叠，可查看完整 Artifact。
 - 暂停、恢复和取消按钮必须反映真实状态，而不是仅修改 UI。
 - Super Agent 模式下默认展示汇总，可下钻到任一子 Run。
@@ -873,6 +911,10 @@ P2 增加 TaskGraph、子 Agent 树、并发状态和 Artifact 浏览。
 - 关键操作支持键盘。
 - 状态不能仅通过颜色表达。
 - P0 文案采用可外部化资源，不将 UI 字符串散落硬编码。
+- 桌面至少提供 `zh-CN` 与 `en-US` 完整字典并允许即时切换；首次跟随系统语言，用户选择持久化，日期格式随语言变化。
+- Electron 系统菜单必须使用当前语言文案，并在语言切换后立即重建；菜单动作通过显式 IPC 事件进入 Renderer，不得把 Node/Electron API 暴露给 Renderer。
+- 模型 ID、工具名、Run ID 和厂商错误保留技术原文；密钥仍必须脱敏。
+- Provider 设置使用可键盘关闭、焦点受约束的模态对话框；Workspace 必须支持原生目录选择，不能只依赖手填路径。
 - 时间、路径和错误显示适配 Windows、macOS、Linux。
 
 ## 19. CLI 规范
@@ -889,7 +931,8 @@ joymind providers list
 joymind tools list
 ```
 
-- 默认输出适合终端；`--json` 提供稳定机器可读输出。
+- 默认输出适合终端；`--json` 提供稳定机器可读输出，语言切换不得改变 JSON 字段与事件结构。
+- `--locale zh-CN|en-US` 与 `JOYMIND_LOCALE` 控制帮助、状态和审批提示；显式参数优先于环境变量，未知环境回退中文，参数仅接受两种枚举。
 - 交互审批必须在 TTY 中明确展示；非交互模式默认拒绝需要审批的工具，除非提供作用域明确的策略文件。
 - CLI 与桌面端不得通过复制 Agent 循环实现。
 - 退出码至少区分成功、用户取消、执行失败、配置错误和需要审批。
@@ -1090,7 +1133,7 @@ pnpm eval
 
 ### M2：桌面可用版本
 
-交付：Electron、React 会话视图、Diff、设置、历史记录、安全密钥存储。
+交付：Electron、React 会话视图、Diff、设置、历史记录、安全密钥存储、三种权限模式、通用偏好、运行详略、安全 Markdown 渲染与中英文系统菜单。
 
 验收：通过 P0 全部发布门槛和平台验证矩阵。
 
@@ -1144,10 +1187,9 @@ Prompt、MCP 元数据和扩展声明均不是授权依据。只有宿主 Policy
 
 ## 28. 明确保留的产品决策
 
-以下决策不阻塞 P0 核心开发，但在对应里程碑前必须确定：
+以下决策不阻塞 P0 核心开发，但在对应里程碑前必须确定。0.4.0 已实现统一 Provider 目录、当前回退预设、在线模型发现、双语、可覆盖模型名、三种权限模式、通用偏好、运行详略、安全 Markdown 渲染和中英文系统菜单；费用仅记录用量，不估算未配置的价格。
 
-- 首个非 OpenAI 兼容 Provider 的具体厂商。
-- P0 默认模型、上下文预算和费用估算方式。
+- 上下文预算和费用估算方式；默认模型按 Provider 目录确定，可在 CLI/UI 中覆盖。
 - Windows 之外的发布优先级。
 - Extension Host 的具体隔离强度和签名策略。
 - Workspace 长期记忆的默认保留期限。

@@ -1,0 +1,24 @@
+{
+  "name": "@joymind/app",
+  "version": "0.4.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --exclude=dist/** --exclude=node_modules/**",
+    "dev": "vite --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@joymind/core": "workspace:*",
+    "dompurify": "^3.4.17",
+    "marked": "^18.2.0",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest"
+  }
+}

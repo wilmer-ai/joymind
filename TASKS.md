@@ -4,9 +4,9 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档版本 | 0.1.0 |
-| 对应 SPEC | JM-SPEC-001 0.1.0 |
-| 当前阶段 | M0，尚未开始实现 |
+| 文档版本 | 0.4.0 |
+| 对应 SPEC | JM-SPEC-001 0.4.0 |
+| 当前阶段 | M2 多模型、权限模式、双语与发布验收 |
 | 目标 | 先交付可靠的单 Agent，再扩展桌面、Extension 和 Super Agent |
 
 ## 1. 编码开发 Agent 执行规则
@@ -31,7 +31,24 @@
 - `blocked`：依赖未完成或存在外部阻塞，需注明原因。
 - `done`：实现、测试、文档和审查均完成。
 
-当前所有任务均为 `todo`。任务 ID 不因拆分子任务而复用；新增任务使用下一个未占用编号。
+任务 ID 不因拆分子任务而复用；新增任务使用下一个未占用编号。
+
+### 当前实施状态
+
+| 任务 | 状态 | 证据或剩余事项 |
+| --- | --- | --- |
+| JM-M0-001～006 | done | 构建、状态机、双 Store Contract、Event、预算与模拟 Run 测试通过 |
+| JM-M1-001/004/005/006/007/009 | done | Provider Contract、Context、工具安全、CLI 与真实 Workspace E2E 通过 |
+| JM-M1-002/003 | in_progress | 统一目录、DeepSeek 等 Provider 的本地真实 HTTP/SSE 测试通过；外部厂商 API smoke 待有效凭据 |
+| JM-M1-008 | in_progress | 完整闭环和恢复已验证；真实厂商驱动的文件修改仍待验收 |
+| JM-M1-010 | in_progress | 已有版本化基线和故障测试；需继续扩大真实任务评测集 |
+| JM-M2-001/002/003/004/006 | done | IPC schema、reducer、桌面 E2E、写前 Diff、历史和控制验证通过 |
+| JM-M2-005 | done | 多 Provider 设置、连接测试、偏好持久化、异步 safeStorage 与 Windows 密钥生命周期 E2E |
+| JM-M2-007/008 | in_progress | Windows unpacked 包及打包后 E2E 已通过；安装器、迁移备份、外部 Provider 和完整发布验收待完成 |
+| JM-M2-009/010 | done | Provider 目录与双语资源、设置中心、目录选择、偏好并发和重载 E2E |
+| JM-M2-011 | done | 官方模型调研、当前回退预设、在线列表/分页、Qwen 管理端点、GLM 降级与桌面获取 E2E |
+| JM-M2-012 | done | 三种权限模式、保留字段剥离、Run 迁移、通用偏好、运行详略、Markdown 消毒、中英文系统菜单及对应 E2E |
+| JM-M3、JM-M4 | todo | 尚未实现 MCP、Extension 和 Super Agent |
 
 每个任务包含：
 
@@ -301,9 +318,45 @@ M2 内部：Electron 壳与 UI 基础可并行；E2E 必须最后集成
 - **验收**：两个 Provider、真实 Workspace 修改、审批、控制、恢复、迁移、桌面/CLI 数据兼容均有实际证据。
 - **验证**：完整 `lint`、`typecheck`、`test`、`build`、`test:e2e`、`eval` 全绿。
 
+### JM-M2-009：建立多 Provider 目录与连接设置
+
+- **依赖**：JM-M1-001、JM-M1-002、JM-M1-003、JM-M2-005。
+- **范围**：`packages/providers`、`packages/runtime`、`packages/cli`、`packages/desktop`。
+- **交付**：统一 Provider 目录与工厂；DeepSeek/OpenAI/Anthropic/Gemini/Kimi/Qwen/GLM/自定义兼容端点；模型和 Base URL 偏好；环境变量状态；最小流式连接测试。
+- **验收**：新增服务不修改 AgentRuntime 循环；DeepSeek 双预设与自定义模型可用；无 Base URL 的自定义端点不会注册；密钥与偏好分离；Windows 并发偏好写入无冲突。
+- **验证**：目录/工厂 Contract、真实本地 HTTP/SSE、CLI 目录、桌面连接及重载 E2E；外部 API 单独验收。
+
+### JM-M2-010：实现双语与首次使用体验
+
+- **依赖**：JM-M2-003、JM-M2-005。
+- **范围**：`packages/app`、`packages/cli`、`packages/e2e`。
+- **交付**：类型一致的 `zh-CN`/`en-US` 字典、即时切换与持久化、CLI `--locale`、设置模态、原生目录选择、示例目标和离线入口。
+- **验收**：界面无新增硬编码用户文案；系统语言回退和初始化竞态正确；模态焦点与 Escape 可用；JSON 输出不受语言影响；原审批闭环不回归。
+- **验证**：字典与 CLI locale 单测、桌面双语/重载 E2E、全量 lint/typecheck/test/test:e2e/eval。
+
+### JM-M2-011：实现在线模型发现与当前预设更新
+
+- **依赖**：JM-M2-009、JM-M2-010。
+- **范围**：`packages/providers`、`packages/desktop`、`packages/app`、`packages/e2e`、`docs/provider-model-catalog.md`。
+- **交付**：官方模型/列表 API 调研、当前回退预设、`modelList` 策略、OpenAI/Anthropic/Gemini/Qwen 响应解析与分页、Qwen 独立列表端点、GLM 手动回退、双语获取反馈。
+- **验收**：DeepSeek 不再推荐已停用 ID；点击获取后可选择并保存；失败/空列表不覆盖当前模型；列表最多 2000 项且有整体超时；列表不进入 Run/Event；GLM 不伪造在线接口。
+- **验证**：各响应格式与 Qwen 分页 Contract、鉴权脱敏、桌面获取/选择/重载 E2E、全量测试和打包后 E2E；真实账号可见性另验。
+
+### JM-M2-012：实现权限模式、通用偏好、Markdown 与系统菜单
+
+- **依赖**：JM-M2-003、JM-M2-004、JM-M2-005、JM-M2-010。
+- **范围**：`packages/core`、`packages/runtime`、`packages/storage`、`packages/app`、`packages/desktop`、`packages/cli`、`packages/e2e`。
+- **交付**：
+  - `ask`/`auto`/`autonomous` 三种权限模式；`auto` 的 `__joymind_permission` 保留字段 schema、剥离与失败关闭；RunSnapshot/事件持久化与 migration。
+  - 通用偏好：默认权限模式、运行过程详略、工具时间线显隐；简略模式不隐藏审批内容。
+  - Assistant Markdown 渲染、DOMPurify 白名单消毒、CSP 与受限外链 IPC。
+  - 中英文 Electron 系统菜单、语言即时切换和菜单动作 IPC。
+- **验收**：自动模式仅在合法 `execute` 时免审批，缺失/非法评估进入审批且不产生副作用；自主模式不逐次询问但仍受 Workspace/预算/取消约束；旧 Run/偏好安全迁移；Markdown 不执行脚本/样式/表单/外部图片；系统菜单随语言切换；Run 快照记录实际权限模式。
+- **验证**：Core/Runtime/Storage/Desktop 单测、App build、权限/Markdown/菜单 E2E、全量 lint/typecheck/test/test:e2e/eval 与打包后 E2E。
+
 ### M2 里程碑验收
 
-- 只有 JM-M2-008 完成后才能发布“完整 P0”。
+- 只有 JM-M2-008（并包含 JM-M2-012 的权限、偏好、Markdown 与系统菜单验收）完成后才能发布“完整 P0”。
 - README 中的功能、平台和使用说明必须与实际产物一致。
 - 不得把开发模式运行成功等同于安装包验收。
 

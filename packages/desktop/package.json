@@ -1,0 +1,42 @@
+{
+  "name": "@joymind/desktop",
+  "version": "0.4.0",
+  "description": "Joymind local-first agent desktop application",
+  "author": "Joymind contributors",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --exclude=dist/** --exclude=node_modules/**",
+    "dev": "tsx src/dev.ts",
+    "start": "electron .",
+    "dist": "electron-builder --dir"
+  },
+  "dependencies": {
+    "@joymind/core": "workspace:*",
+    "@joymind/providers": "workspace:*",
+    "@joymind/runtime": "workspace:*",
+    "better-sqlite3": "latest",
+    "diff": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "electron": "latest",
+    "electron-builder": "latest",
+    "tsx": "latest"
+  },
+  "build": {
+    "appId": "dev.joymind.desktop",
+    "productName": "Joymind",
+    "electronDist": "node_modules/electron/dist",
+    "asar": true,
+    "files": ["dist/**/*", "package.json"],
+    "extraResources": [{ "from": "../app/dist", "to": "app" }],
+    "directories": { "output": "release" },
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg" },
+    "linux": { "target": "AppImage" },
+    "artifactName": "Joymind-${version}-${os}-${arch}.${ext}"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "@joymind/storage", "version": "0.4.0", "type": "module",
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run --exclude=dist/** --exclude=node_modules/**" },
+  "dependencies": { "@joymind/core": "workspace:*", "better-sqlite3": "latest" },
+  "devDependencies": { "@types/better-sqlite3": "latest" }
+}

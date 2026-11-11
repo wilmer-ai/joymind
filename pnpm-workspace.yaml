@@ -1,0 +1,8 @@
+packages:
+  - packages/*
+  - evals
+allowBuilds:
+  better-sqlite3: true
+  electron: true
+  electron-winstaller: false
+  esbuild: true

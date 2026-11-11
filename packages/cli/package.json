@@ -1,0 +1,6 @@
+{
+  "name": "@joymind/cli", "version": "0.4.0", "type": "module",
+  "bin": { "joymind": "./dist/index.js" },
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run --passWithNoTests --exclude=dist/** --exclude=node_modules/**" },
+  "dependencies": { "@joymind/core": "workspace:*", "@joymind/providers": "workspace:*", "@joymind/runtime": "workspace:*", "commander": "latest" }
+}
